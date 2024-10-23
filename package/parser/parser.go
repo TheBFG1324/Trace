@@ -277,8 +277,8 @@ type Parser struct {
 // NewParser creates a new Parser.
 func NewParser(l *Lexer) *Parser {
 	p := &Parser{
-		lexer:         l,
-		errors:        []string{},
+		lexer:  l,
+		errors: []string{},
 		parentRequest: &ParentRequest{
 			Statements:  []interface{}{},
 			GlobalData:  make(map[string]*Data),
