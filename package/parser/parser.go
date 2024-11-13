@@ -230,9 +230,8 @@ type Data struct {
 
 // Permission represents permissions assigned to an agent.
 type Permission struct {
-	AgentName   string
-	DataNames   []string
-	Permissions []string
+	AgentName      string
+	DataPermissions map[string][]string // Map of data names to permissions
 }
 
 // Task represents a task to be executed.
@@ -240,11 +239,6 @@ type Task struct {
 	TaskName   string
 	AgentName  string
 	Parameters map[string]string
-}
-
-// WaitStatement represents a WAIT statement.
-type WaitStatement struct {
-	TaskNames []string
 }
 
 // ParentRequest represents the root of the parsed script.
@@ -437,33 +431,45 @@ func (p *Parser) parsePermission() {
 	perm, exists := p.parentRequest.Permissions[agentName]
 	if !exists {
 		perm = &Permission{
-			AgentName:   agentName,
-			DataNames:   []string{},
-			Permissions: []string{},
+			AgentName:      agentName,
+			DataPermissions: make(map[string][]string),
 		}
 	}
 
-	// Expect DATA keyword
-	if !p.expectPeekKeyword("DATA") {
-		return
-	}
+	// Loop to parse multiple DATA and ACCESS pairs
+	for {
+		// Expect DATA keyword
+		if !p.expectPeekKeyword("DATA") {
+			return
+		}
 
-	p.nextToken() // Move to first data name
-	dataNames := p.parseIdentifierList()
-	perm.DataNames = append(perm.DataNames, dataNames...)
+		p.nextToken() // Move to first data name
+		dataNames := p.parseIdentifierList()
 
-	// Expect ACCESS keyword
-	if !p.expectPeekKeyword("ACCESS") {
-		return
-	}
+		// Expect ACCESS keyword
+		if !p.expectPeekKeyword("ACCESS") {
+			return
+		}
 
-	p.nextToken() // Move to first permission
-	permissions := p.parseIdentifierList()
-	perm.Permissions = append(perm.Permissions, permissions...)
+		p.nextToken() // Move to first permission
+		permissions := p.parseIdentifierList()
 
-	// Expect ';'
-	if !p.expectPeek(SEMICOL) {
-		return
+		// Assign permissions to each data item
+		for _, dataName := range dataNames {
+			perm.DataPermissions[dataName] = append(perm.DataPermissions[dataName], permissions...)
+		}
+
+		// Check if there is another DATA keyword
+		if p.peekTokenIsKeyword("DATA") {
+			p.nextToken() // Move to 'DATA' keyword
+			continue
+		} else if p.peekTokenIs(SEMICOL) {
+			p.nextToken() // Consume ';'
+			break
+		} else {
+			p.errors = append(p.errors, "Expected 'DATA' or ';' after permissions")
+			return
+		}
 	}
 
 	p.nextToken()
@@ -543,11 +549,6 @@ func (p *Parser) parseRunSeqBlock() *RunSeqBlock {
 			if nestedCon != nil {
 				seqBlock.Statements = append(seqBlock.Statements, nestedCon)
 			}
-		} else if p.curTokenIsKeyword("WAIT") {
-			wait := p.parseWait()
-			if wait != nil {
-				seqBlock.Statements = append(seqBlock.Statements, wait)
-			}
 		} else {
 			p.nextToken()
 		}
@@ -597,13 +598,6 @@ func (p *Parser) parseRunConBlock() *RunConBlock {
 				conBlock.Statements[key] = nestedCon
 				count++
 			}
-		} else if p.curTokenIsKeyword("WAIT") {
-			wait := p.parseWait()
-			if wait != nil {
-				key := fmt.Sprintf("WAIT_%d", count)
-				conBlock.Statements[key] = wait
-				count++
-			}
 		} else {
 			p.nextToken()
 		}
@@ -614,22 +608,6 @@ func (p *Parser) parseRunConBlock() *RunConBlock {
 	}
 	p.nextToken()
 	return conBlock
-}
-
-func (p *Parser) parseWait() *WaitStatement {
-	wait := &WaitStatement{}
-
-	p.nextToken() // Move to first task name
-
-	wait.TaskNames = p.parseIdentifierList()
-
-	// Expect ';'
-	if !p.expectPeek(SEMICOL) {
-		return nil
-	}
-
-	p.nextToken()
-	return wait
 }
 
 // Helper functions
@@ -728,6 +706,7 @@ func main() {
 START
     DATA data1 TYPE String VALUE "Initial Data" ;
     DATA data2 TYPE String ;
+    DATA globalDataAdd TYPE String ;
     DATA globalData TYPE string ;
 
     PERM AGENT Agent1 DATA data1 ACCESS READ, WRITE ;
@@ -740,7 +719,6 @@ START
             TASK ProcessData AGENT Agent2 PARAMETERS (input=data1, output=data2) ;
             TASK LogData AGENT Agent3 PARAMETERS (input=data1) ;
         }
-        WAIT ProcessData ;
         TASK SaveData AGENT Agent4 PARAMETERS (input=data2) ;
     }
 END
@@ -766,8 +744,11 @@ END
 	fmt.Println()
 
 	fmt.Println("Permissions:")
-	for agent, perm := range parentRequest.Permissions {
-		fmt.Printf("Agent: %s, Data: %v, Permissions: %v\n", agent, perm.DataNames, perm.Permissions)
+	for agentName, perm := range parentRequest.Permissions {
+		fmt.Printf("Agent: %s\n", agentName)
+		for dataName, permissions := range perm.DataPermissions {
+			fmt.Printf("  Data: %s, Permissions: %v\n", dataName, permissions)
+		}
 	}
 	fmt.Println()
 
@@ -791,8 +772,6 @@ func printStatements(statements []interface{}, indent int) {
 				fmt.Printf("%s    Key: %s\n", prefix, key)
 				printStatements([]interface{}{conStmt}, indent+2)
 			}
-		case *WaitStatement:
-			fmt.Printf("%sWait for tasks: %v\n", prefix, s.TaskNames)
 		default:
 			fmt.Printf("%sUnknown statement type\n", prefix)
 		}
