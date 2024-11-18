@@ -7,6 +7,7 @@ import (
     "trace/package/agent"
     "trace/package/task"
     "trace/package/utils/template"
+    "trace/package/parser"
 	"time"
 )
 
@@ -36,6 +37,11 @@ func ExecuteTask(a *agent.BaseAgent, t *task.Task, globalData map[string]interfa
     t.UpdateResult(response)
     t.UpdateStatus(task.Finished)
     return response
+}
+
+// LoadDependentGlobalData loads in the data mapping an agent can use based off of the given permissions
+func LoadDependentGlobalData(agentName string, permissions map[string]*parser.Permission, globalData map[string]*parser.Data){
+
 }
 
 // SimulateAPICall simulates sending a payload to the agent's endpoint.

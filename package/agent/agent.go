@@ -2,6 +2,7 @@ package agent
 
 import (
 	"sync"
+	"fmt"
 )
 
 // BaseAgent provides a base implementation of the Agent interface.
@@ -10,7 +11,7 @@ type BaseAgent struct {
 	Name         string
 	AgentType    string
 	Endpoint     string
-	JsonBody	 map[string]interface{}
+	JsonBody     map[string]interface{}
 	Reputation   float32
 	Capabilities []string
 	mu           sync.Mutex
@@ -23,7 +24,7 @@ func NewBaseAgent(id string, name string, agentType string, endpoint string, jso
 		Name:         name,
 		AgentType:    agentType,
 		Endpoint:     endpoint,
-		JsonBody: 	  jsonBody,
+		JsonBody:     jsonBody,
 		Capabilities: capabilities,
 		Reputation:   0.0,
 	}
@@ -64,4 +65,81 @@ func (a *BaseAgent) GetCapabilities() []string {
 // GetJson returns the agent's json template.
 func (a *BaseAgent) GetJsonBody() map[string]interface{} {
 	return a.JsonBody
+}
+
+// GetMockAgents returns an array of mock base agents.
+func GetMockAgents() []*BaseAgent {
+	mockAgents := []*BaseAgent{
+		NewBaseAgent("AG123", "Flight Getter", "Travel", "https://api.flightgetter.com",
+			map[string]interface{}{
+				"action": "search",
+				"params": map[string]interface{}{
+					"origin":      "string",
+					"destination": "string",
+					"date":        "string",
+				},
+			}, []string{"Search Flights", "Get Deals"}),
+		NewBaseAgent("AG124", "Room Booker", "Hospitality", "https://api.roombooker.com",
+			map[string]interface{}{
+				"action": "reserve",
+				"params": map[string]interface{}{
+					"location": "string",
+					"date":     "string",
+					"guests":   "int",
+				},
+			}, []string{"Search Rooms", "Make Reservations"}),
+		NewBaseAgent("AG125", "Uber Scheduler", "Transportation", "https://api.uberscheduler.com",
+			map[string]interface{}{
+				"action": "schedule",
+				"params": map[string]interface{}{
+					"pickup":   "string",
+					"dropoff":  "string",
+					"time":     "string",
+				},
+			}, []string{"Schedule Ride", "Get ETA"}),
+		NewBaseAgent("AG126", "Weather Checker", "Utility", "https://api.weatherchecker.com",
+			map[string]interface{}{
+				"action": "get_weather",
+				"params": map[string]interface{}{
+					"location": "string",
+					"date":     "string",
+				},
+			}, []string{"Get Weather", "Hourly Forecast"}),
+		NewBaseAgent("AG127", "Package Tracker", "Logistics", "https://api.packagetracker.com",
+			map[string]interface{}{
+				"action": "track",
+				"params": map[string]interface{}{
+					"tracking_number": "string",
+				},
+			}, []string{"Track Package", "Delivery ETA"}),
+	}
+	return mockAgents
+}
+
+// SimulateLoadAgent returns predefined agents based on the given identifier type and value.
+func SimulateLoadAgent(identifierType string, identifierValue string) *BaseAgent {
+	mockAgents := GetMockAgents()
+
+	for _, agent := range mockAgents {
+		switch identifierType {
+		case "ID":
+			if agent.ID == identifierValue {
+				return agent
+			}
+		case "Name":
+			if agent.Name == identifierValue {
+				return agent
+			}
+		case "AgentType":
+			if agent.AgentType == identifierValue {
+				return agent
+			}
+		default:
+			fmt.Printf("Unknown identifier type: %s\n", identifierType)
+			return nil
+		}
+	}
+
+	fmt.Printf("Agent not found for %s: %s\n", identifierType, identifierValue)
+	return nil
 }

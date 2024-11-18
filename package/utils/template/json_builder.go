@@ -1,16 +1,19 @@
-
 package template
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 )
 
-// LoadJSON builds the final JSON string with proper data types
+// LoadJSON builds the final JSON string with proper data types. It ensures that all placeholders are filled; otherwise, it returns an error.
 func LoadJSON(jsonTemplate map[string]interface{}, taskParameters, globalData map[string]interface{}) (string, error) {
 	templateCopy := deepCopyMap(jsonTemplate)
 
-	replacePlaceholders(templateCopy, taskParameters, globalData)
+	// Replace placeholders and check for unfilled placeholders
+	if !replacePlaceholders(templateCopy, taskParameters, globalData) {
+		return "", errors.New("unfilled placeholders found in the template")
+	}
 
 	finalJson, err := json.Marshal(templateCopy)
 	if err != nil {
@@ -20,8 +23,10 @@ func LoadJSON(jsonTemplate map[string]interface{}, taskParameters, globalData ma
 	return string(finalJson), nil
 }
 
-// Helper function to recursively replace placeholders
-func replacePlaceholders(data map[string]interface{}, taskParameters, globalData map[string]interface{}) {
+// Helper function to recursively replace placeholders. Returns false if any placeholders remain unfilled.
+func replacePlaceholders(data map[string]interface{}, taskParameters, globalData map[string]interface{}) bool {
+	allPlaceholdersFilled := true
+
 	for key, value := range data {
 		switch v := value.(type) {
 		case string:
@@ -32,30 +37,38 @@ func replacePlaceholders(data map[string]interface{}, taskParameters, globalData
 				} else if val, ok := globalData[varName]; ok {
 					data[key] = val
 				} else {
-					data[key] = nil 
+					// Placeholder remains unfilled
+					allPlaceholdersFilled = false
 				}
 			}
 		case map[string]interface{}:
-			replacePlaceholders(v, taskParameters, globalData)
+			if !replacePlaceholders(v, taskParameters, globalData) {
+				allPlaceholdersFilled = false
+			}
 		case []interface{}:
 			for i, item := range v {
-				if itemMap, ok := item.(map[string]interface{}); ok {
-					replacePlaceholders(itemMap, taskParameters, globalData)
-				} else if itemStr, ok := item.(string); ok {
-					if strings.HasPrefix(itemStr, "[[") && strings.HasSuffix(itemStr, "]]") {
-						varName := strings.TrimSuffix(strings.TrimPrefix(itemStr, "[["), "]]")
+				switch itemVal := item.(type) {
+				case map[string]interface{}:
+					if !replacePlaceholders(itemVal, taskParameters, globalData) {
+						allPlaceholdersFilled = false
+					}
+				case string:
+					if strings.HasPrefix(itemVal, "[[") && strings.HasSuffix(itemVal, "]]") {
+						varName := strings.TrimSuffix(strings.TrimPrefix(itemVal, "[["), "]]")
 						if val, ok := taskParameters[varName]; ok {
 							v[i] = val
 						} else if val, ok := globalData[varName]; ok {
 							v[i] = val
 						} else {
-							v[i] = nil
+							allPlaceholdersFilled = false
 						}
 					}
 				}
 			}
 		}
 	}
+
+	return allPlaceholdersFilled
 }
 
 // Helper function to deep copy a map

@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"sync"
 	"time"
 )
 
@@ -19,6 +20,7 @@ func (l *Log) Information() string {
 
 type Logger struct {
 	Logs	[]Log
+	mu 		sync.Mutex
 }
 
 func NewLogger() *Logger {
@@ -33,6 +35,8 @@ func NewLogger() *Logger {
 }
 
 func(l *Logger) AddLog(information string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	newLog := Log{
 		timestamp: time.Now(),
 		information: information,
@@ -41,6 +45,8 @@ func(l *Logger) AddLog(information string) {
 }
 
 func (l *Logger) GetLog(index int) Log {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	if index >=0 && index < len(l.Logs) {
 		return l.Logs[index]
 	}
@@ -48,5 +54,9 @@ func (l *Logger) GetLog(index int) Log {
 }
 
 func (l *Logger) GetAllLogs() []Log {
-	return l.Logs
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	logsCopy := make([]Log, len(l.Logs))
+	copy(logsCopy, l.Logs)
+	return logsCopy
 }
