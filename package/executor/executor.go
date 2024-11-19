@@ -1,27 +1,26 @@
-// trace/package/executor/executor.go
 package executor
 
 import (
     "fmt"
     "sync"
+    "time"
     "trace/package/agent"
+    "trace/package/parser"
     "trace/package/task"
     "trace/package/utils/template"
-    "trace/package/parser"
-	"time"
 )
 
 // ExecuteTask performs the task using the provided agent and updates the task status accordingly.
-func ExecuteTask(a *agent.BaseAgent, t *task.Task, globalData map[string]interface{}) string {
+func ExecuteTask(a *agent.BaseAgent, t *task.Task, globalData map[string]*parser.Data, globalPermissions map[string]*parser.Permission) error {
     t.UpdateStatus(task.InProgress)
     t.UpdateOwner(a.GetID())
     t.DisplayTask()
 
-    // Generate the JSON payload using the template package
-    jsonPayload, err := template.LoadJSON(a.GetJsonBody(), t.Parameters, globalData)
+    filteredGlobalData := FilterGlobalDataByPermissions(a.GetName(), globalPermissions, globalData)
+
+    jsonPayload, err := template.LoadJSON(a.GetJsonBody(), t.Parameters, filteredGlobalData)
     if err != nil {
-        fmt.Println("Error generating JSON payload:", err)
-        return ""
+        return fmt.Errorf("error generating JSON payload: %w", err)
     }
 
     var wg sync.WaitGroup
@@ -32,17 +31,102 @@ func ExecuteTask(a *agent.BaseAgent, t *task.Task, globalData map[string]interfa
         defer wg.Done()
         response = SimulateAPICall(a, jsonPayload)
     }()
-
     wg.Wait()
-    t.UpdateResult(response)
+
+    err = HandleResponse(a, t, globalData, globalPermissions, response)
+    if err != nil {
+        return fmt.Errorf("error handling response: %w", err)
+    }
+
     t.UpdateStatus(task.Finished)
-    return response
+    return nil
 }
 
-// LoadDependentGlobalData loads in the data mapping an agent can use based off of the given permissions
-func LoadDependentGlobalData(agentName string, permissions map[string]*parser.Permission, globalData map[string]*parser.Data){
 
+// GetAgentPermissions retrieves the data permissions for a specific agent.
+func GetAgentPermissions(a *agent.BaseAgent, globalPermissions map[string]*parser.Permission) map[string][]string {
+    agentPermissions, ok := globalPermissions[a.GetName()]
+    if !ok {
+        return nil
+    }
+    return agentPermissions.DataPermissions
 }
+
+// FilterGlobalDataByPermissions creates a data mapping an agent can use based on its permissions.
+func FilterGlobalDataByPermissions(agentName string, globalPermissions map[string]*parser.Permission, globalData map[string]*parser.Data) map[string]interface{} {
+    agent := agent.SimulateLoadAgent("Name", agentName)
+    if agent == nil {
+        return nil
+    }
+
+    agentPermissions := GetAgentPermissions(agent, globalPermissions)
+    if agentPermissions == nil {
+        return nil
+    }
+
+    dependentGlobalData := make(map[string]interface{})
+
+    for variable, permissions := range agentPermissions {
+        if HasPermission(permissions, "READ") {
+            if value, found := globalData[variable]; found {
+                dependentGlobalData[variable] = value
+            }
+        }
+    }
+
+    return dependentGlobalData
+}
+
+// HasPermission checks if a specific permission exists in the list.
+func HasPermission(permissions []string, target string) bool {
+    for _, permission := range permissions {
+        if permission == target {
+            return true
+        }
+    }
+    return false
+}
+
+// HandleResponse updates the global data if commanded
+func HandleResponse(a *agent.BaseAgent, t *task.Task, globalData map[string]*parser.Data, globalPermissions map[string]*parser.Permission, response string) error {
+    variableRaw, hasOutputParameter := t.Parameters["OUTPUT"]
+    if !hasOutputParameter {
+        t.UpdateResult(response)
+        return nil
+    }
+
+    variable, ok := variableRaw.(string)
+    if !ok {
+        return fmt.Errorf("expected OUTPUT parameter to be a string, got %T", variableRaw)
+    }
+
+    agentPermissions := GetAgentPermissions(a, globalPermissions)
+    if agentPermissions == nil {
+        return fmt.Errorf("agent '%s' does not have any permissions defined", a.GetName())
+    }
+
+    permissions, variableExists := agentPermissions[variable]
+    if !variableExists || !HasPermission(permissions, "WRITE") {
+        return fmt.Errorf("agent '%s' does not have WRITE permission for variable '%s'", a.GetName(), variable)
+    }
+
+    data, found := globalData[variable]
+    if !found {
+        return fmt.Errorf("variable '%s' not found in global data", variable)
+    }
+
+    data.Mu.Lock()
+    data.InitialValue = response
+    data.Mu.Unlock()
+
+    newParam := make(map[string]interface{})
+    newParam["OUTPUT"] = response
+    t.UpdateParameters(newParam)
+
+    t.UpdateResult(response)
+    return nil
+}
+
 
 // SimulateAPICall simulates sending a payload to the agent's endpoint.
 func SimulateAPICall(a *agent.BaseAgent, jsonPayload string) string {

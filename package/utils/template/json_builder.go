@@ -7,10 +7,9 @@ import (
 )
 
 // LoadJSON builds the final JSON string with proper data types. It ensures that all placeholders are filled; otherwise, it returns an error.
-func LoadJSON(jsonTemplate map[string]interface{}, taskParameters, globalData map[string]interface{}) (string, error) {
+func LoadJSON(jsonTemplate map[string]interface{}, taskParameters map[string]interface{}, globalData map[string]interface{}) (string, error) {
 	templateCopy := deepCopyMap(jsonTemplate)
 
-	// Replace placeholders and check for unfilled placeholders
 	if !replacePlaceholders(templateCopy, taskParameters, globalData) {
 		return "", errors.New("unfilled placeholders found in the template")
 	}
@@ -24,7 +23,7 @@ func LoadJSON(jsonTemplate map[string]interface{}, taskParameters, globalData ma
 }
 
 // Helper function to recursively replace placeholders. Returns false if any placeholders remain unfilled.
-func replacePlaceholders(data map[string]interface{}, taskParameters, globalData map[string]interface{}) bool {
+func replacePlaceholders(data map[string]interface{}, taskParameters map[string]interface{}, globalData map[string]interface{}) bool {
 	allPlaceholdersFilled := true
 
 	for key, value := range data {

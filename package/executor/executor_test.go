@@ -1,52 +1,121 @@
-package executor_test
+package executor
 
 import (
-	"testing"
-	"trace/package/agent"
-	"trace/package/executor"
-	"trace/package/task"
+    "sync"
+    "testing"
+    "trace/package/agent"
+    "trace/package/parser"
+    "trace/package/task"
 )
 
-// TestExecuteTask tests the ExecuteTask function.
-func TestExecuteTask(t *testing.T) {
-	// Define the JSON template for the agent
-	jsonTemplate := map[string]interface{}{
-		"taskName": "[[taskName]]",
-		"age":      "[[age]]",
-		"config": map[string]interface{}{
-			"timeout": "[[timeout]]",
-		},
-	}
+// TestExecuteTask_Success tests the ExecuteTask function with valid inputs.
+func TestExecuteTask_Success(t *testing.T) {
+    agent := agent.SimulateLoadAgent("Name", "Flight Getter")
+    if agent == nil {
+        t.Fatal("Agent not found")
+    }
 
-	// Create a new agent
-	agent := agent.NewBaseAgent(
-		"agent1",
-		"Example Agent",
-		"TypeA",
-		"http://example.com/api",
-		jsonTemplate,
-		[]string{"capability1"},
-	)
+    task := task.CreateTask(1, "Book Flight", map[string]interface{}{
+        "origin":      "NYC",
+        "destination": "LAX",
+        "date":        "2023-10-10",
+        "OUTPUT":      "flightInfo",
+    })
 
-	// Define task parameters and global data
-	taskParameters := map[string]interface{}{
-		"taskName": "Process Data",
-		"age":      6,
-	}
+    globalData := map[string]*parser.Data{
+        "flightInfo": {
+            DataName:     "flightInfo",
+            DataType:     "String",
+            InitialValue: "",
+            Mu:           sync.Mutex{},
+        },
+    }
 
-	globalData := map[string]interface{}{
-		"timeout": 30,
-	}
+    globalPermissions := map[string]*parser.Permission{
+        "Flight Getter": {
+            AgentName: "Flight Getter",
+            DataPermissions: map[string][]string{
+                "flightInfo": {"READ", "WRITE"},
+            },
+        },
+    }
 
-	// Create a new task
-	task := task.CreateTask(1, "Example Task", taskParameters)
+    err := ExecuteTask(agent, task, globalData, globalPermissions)
+    if err != nil {
+        t.Fatalf("ExecuteTask failed: %v", err)
+    }
 
-	// Execute the task
-	response := executor.ExecuteTask(agent, task, globalData)
+    expectedValue := "simulated response"
+    actualValue := globalData["flightInfo"].InitialValue
+    if actualValue != expectedValue {
+        t.Errorf("Expected globalData['flightInfo'].InitialValue to be '%s', got '%s'", expectedValue, actualValue)
+    }
+}
 
-	// Verify the response
-	expected := "simulated response" // This should be the expected response from SimulateAPICall.
-	if response != expected {
-		t.Errorf("Expected response %s, but got %s", expected, response)
-	}
+// TestExecuteTask_NoWritePermission tests ExecuteTask when the agent lacks WRITE permission.
+func TestExecuteTask_NoWritePermission(t *testing.T) {
+    agent := agent.SimulateLoadAgent("Name", "Flight Getter")
+    if agent == nil {
+        t.Fatal("Agent not found")
+    }
+
+    task := task.CreateTask(1, "Book Flight", map[string]interface{}{
+        "origin":      "NYC",
+        "destination": "LAX",
+        "date":        "2023-10-10",
+        "OUTPUT":      "flightInfo",
+    })
+
+    globalData := map[string]*parser.Data{
+        "flightInfo": {
+            DataName:     "flightInfo",
+            DataType:     "String",
+            InitialValue: "",
+            Mu:           sync.Mutex{},
+        },
+    }
+
+    globalPermissions := map[string]*parser.Permission{
+        "Flight Getter": {
+            AgentName: "Flight Getter",
+            DataPermissions: map[string][]string{
+                "flightInfo": {"READ"}, 
+            },
+        },
+    }
+
+    err := ExecuteTask(agent, task, globalData, globalPermissions)
+    if err == nil {
+        t.Fatal("Expected error due to lack of WRITE permission, but got none")
+    }
+}
+
+func TestExecuteTask_MissingGlobalData(t *testing.T) {
+    agent := agent.SimulateLoadAgent("Name", "Flight Getter")
+    if agent == nil {
+        t.Fatal("Agent not found")
+    }
+
+    task := task.CreateTask(1, "Book Flight", map[string]interface{}{
+        "origin":      "NYC",
+        "destination": "LAX",
+        "date":        "2023-10-10",
+        "OUTPUT":      "flightInfo",
+    })
+
+    globalData := map[string]*parser.Data{}
+
+    globalPermissions := map[string]*parser.Permission{
+        "Flight Getter": {
+            AgentName: "Flight Getter",
+            DataPermissions: map[string][]string{
+                "flightInfo": {"READ", "WRITE"},
+            },
+        },
+    }
+
+    err := ExecuteTask(agent, task, globalData, globalPermissions)
+    if err == nil {
+        t.Fatal("Expected error due to missing global data, but got none")
+    }
 }

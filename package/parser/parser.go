@@ -227,7 +227,7 @@ type Data struct {
 	DataName     string
 	DataType     string
 	InitialValue string
-	mu 			 sync.Mutex
+	Mu 			 sync.Mutex
 }
 
 // Permission represents permissions assigned to an agent.
