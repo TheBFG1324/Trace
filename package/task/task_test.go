@@ -1,6 +1,7 @@
 package task_test
 
 import (
+	"fmt"
 	"testing"
 	"trace/package/task"
 )
@@ -81,8 +82,8 @@ func TestUpdateResult(t *testing.T) {
 	}
 }
 
-// TestDisplayTask tests displaying the task details.
-func TestDisplayTask(t *testing.T) {
+// TestGetInfoString tests displaying the task details.
+func TestGetInfoString(t *testing.T) {
 	taskInstance := task.CreateTask(6, "Display Task", map[string]interface{}{
 		"key1": "value1",
 	})
@@ -90,5 +91,6 @@ func TestDisplayTask(t *testing.T) {
 	taskInstance.UpdateStatus(task.Finished)
 	taskInstance.UpdateResult("result1")
 
-	taskInstance.DisplayTask() // Should output the details to console
+	info := taskInstance.GetInfoString()
+	fmt.Println(info)
 }

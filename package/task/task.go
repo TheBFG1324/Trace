@@ -74,12 +74,9 @@ func (t *Task) UpdateResult(item string) {
 }
 
 // DisplayTask prints the task's details.
-func (t *Task) DisplayTask() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	fmt.Printf(
-		"Task ID: %d\nDescription: %s\nStatus: %d\nOwner: %v\nParameters: %v\nResults: %v\n",
-		t.ID, t.Description, t.Status, t.Owner, t.Parameters, t.Result,
-	)
+func (t *Task) GetInfoString() string {
+    return fmt.Sprintf(
+        "Task ID: %d\nDescription: %s\nStatus: %d\nOwner: %v\nParameters: %v\nResults: %v\n",
+        t.ID, t.Description, t.Status, t.Owner, t.Parameters, t.Result,
+    )
 }

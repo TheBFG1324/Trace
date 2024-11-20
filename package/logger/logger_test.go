@@ -7,29 +7,30 @@ import (
 
 // TestNewLogger checks that the Logger is correctly initialized with a starting log entry.
 func TestNewLogger(t *testing.T) {
-	logger := logger.NewLogger()
+	log := logger.NewLogger()
 
-	if len(logger.Logs) != 1 {
-		t.Errorf("Expected 1 log entry on initialization, got %d", len(logger.Logs))
+	if len(log.Logs) != 1 {
+		t.Errorf("Expected 1 log entry on initialization, got %d", len(log.Logs))
 	}
 
-	if logger.Logs[0].Information() != "Initialized Logger" {
-		t.Errorf("Expected first log information to be 'Initialized Logger', got '%s'", logger.Logs[0].Information())
+	if log.Logs[0].Information() != "Initialized Logger" {
+		t.Errorf("Expected first log information to be 'Initialized Logger', got '%s'", log.Logs[0].Information())
 	}
 }
 
 // TestAddLog checks that a new log entry can be added and that it appears correctly.
 func TestAddLog(t *testing.T) {
-	logger := logger.NewLogger()
-	initialCount := len(logger.Logs)
+	log := logger.NewLogger()
+	initialCount := len(log.Logs)
 
-	logger.AddLog("Test log entry")
+	newLog := logger.NewLog("Test log entry")
+	log.AddLog(newLog)
 
-	if len(logger.Logs) != initialCount+1 {
-		t.Errorf("Expected %d log entries, got %d", initialCount+1, len(logger.Logs))
+	if len(log.Logs) != initialCount+1 {
+		t.Errorf("Expected %d log entries, got %d", initialCount+1, len(log.Logs))
 	}
 
-	lastLog := logger.Logs[len(logger.Logs)-1]
+	lastLog := log.Logs[len(log.Logs)-1]
 	if lastLog.Information() != "Test log entry" {
 		t.Errorf("Expected last log information to be 'Test log entry', got '%s'", lastLog.Information())
 	}
@@ -37,20 +38,20 @@ func TestAddLog(t *testing.T) {
 
 // TestGetLog checks that individual logs can be retrieved by index.
 func TestGetLog(t *testing.T) {
-	logger := logger.NewLogger()
-	logger.AddLog("Second log entry")
+	log := logger.NewLogger()
+	log.AddLog(logger.NewLog("Second log entry"))
 
-	firstLog := logger.GetLog(0)
+	firstLog := log.GetLog(0)
 	if firstLog.Information() != "Initialized Logger" {
 		t.Errorf("Expected first log information to be 'Initialized Logger', got '%s'", firstLog.Information())
 	}
 
-	secondLog := logger.GetLog(1)
+	secondLog := log.GetLog(1)
 	if secondLog.Information() != "Second log entry" {
 		t.Errorf("Expected second log information to be 'Second log entry', got '%s'", secondLog.Information())
 	}
 
-	outOfBoundsLog := logger.GetLog(10)
+	outOfBoundsLog := log.GetLog(10)
 	if !outOfBoundsLog.Timestamp().IsZero() || outOfBoundsLog.Information() != "" {
 		t.Errorf("Expected out-of-bounds log to be empty, got '%v'", outOfBoundsLog)
 	}
@@ -58,11 +59,11 @@ func TestGetLog(t *testing.T) {
 
 // TestGetAllLogs checks that all logs can be retrieved at once.
 func TestGetAllLogs(t *testing.T) {
-	logger := logger.NewLogger()
-	logger.AddLog("Additional log 1")
-	logger.AddLog("Additional log 2")
+	log := logger.NewLogger()
+	log.AddLog(logger.NewLog("Additional log 1"))
+	log.AddLog(logger.NewLog("Additional log 2"))
 
-	allLogs := logger.GetAllLogs()
+	allLogs := log.GetAllLogs()
 	expectedCount := 3
 
 	if len(allLogs) != expectedCount {
