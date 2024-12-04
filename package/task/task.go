@@ -4,6 +4,7 @@ package task
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 )
 
 // Status represents the status of a task.
@@ -27,10 +28,17 @@ type Task struct {
 	mu sync.Mutex
 }
 
+var taskIDCounter int64
+
+// GenerateUniqueTaskID generates a unique ID for each task
+func GenerateUniqueTaskID() int {
+	return int(atomic.AddInt64(&taskIDCounter, 1))
+}
+
 // CreateTask initializes a new task.
-func CreateTask(id int, description string, parameters map[string]interface{}) *Task {
+func CreateTask(description string, parameters map[string]interface{}) *Task {
 	return &Task{
-		ID:          id,
+		ID:          GenerateUniqueTaskID(),
 		Description: description,
 		Owner:       "None",
 		Status:      Pending,

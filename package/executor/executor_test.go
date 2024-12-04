@@ -4,26 +4,32 @@ import (
 	"sync"
 	"testing"
 	"trace/package/agent"
+	"trace/package/executor"
 	"trace/package/logger"
 	"trace/package/parser"
-	"trace/package/task"
-	"trace/package/executor"
 )
 
-// TestExecuteTask_Success tests the ExecuteTask function with valid inputs.
+// TestExecuteTask_Success verifies the successful execution of a task.
 func TestExecuteTask_Success(t *testing.T) {
-	agent := agent.SimulateLoadAgent("Name", "Flight Getter")
-	if agent == nil {
+	// Load a mock agent
+	mockAgent := agent.SimulateLoadAgent("Name", "Flight Getter")
+	if mockAgent == nil {
 		t.Fatal("Agent not found")
 	}
 
-	task := task.CreateTask(1, "Book Flight", map[string]interface{}{
-		"origin":      "NYC",
-		"destination": "LAX",
-		"date":        "2023-10-10",
-		"OUTPUT":      "flightInfo",
-	})
+	// Create a parser task with valid parameters
+	mockTask := &parser.Task{
+		TaskName:  "Book Flight",
+		AgentName: "Flight Getter",
+		Parameters: map[string]string{
+			"origin":      "NYC",
+			"destination": "LAX",
+			"date":        "2023-10-10",
+			"OUTPUT":      "flightInfo",
+		},
+	}
 
+	// Define global data with synchronization
 	globalData := map[string]*parser.Data{
 		"flightInfo": {
 			DataName:     "flightInfo",
@@ -33,6 +39,7 @@ func TestExecuteTask_Success(t *testing.T) {
 		},
 	}
 
+	// Define global permissions for the mock agent
 	globalPermissions := map[string]*parser.Permission{
 		"Flight Getter": {
 			AgentName: "Flight Getter",
@@ -42,38 +49,47 @@ func TestExecuteTask_Success(t *testing.T) {
 		},
 	}
 
-	// Create a new logger
-	logger := logger.NewLogger()
+	// Create a logger instance
+	log := logger.NewLogger()
 
-	err := executor.ExecuteTask(agent, task, globalData, globalPermissions, logger)
+	// Execute the task
+	err := executor.ExecuteTask(mockAgent.GetName(), mockTask, globalData, globalPermissions, log)
 	if err != nil {
 		t.Fatalf("ExecuteTask failed: %v", err)
 	}
 
+	// Check if the global data was updated as expected
 	expectedValue := "simulated response"
 	actualValue := globalData["flightInfo"].InitialValue
 	if actualValue != expectedValue {
 		t.Errorf("Expected globalData['flightInfo'].InitialValue to be '%s', got '%s'", expectedValue, actualValue)
 	}
 
-	// Print logger information
-	logger.PrintAllLogs()
+	// Print logs for debugging purposes
+	log.PrintAllLogs()
 }
 
-// TestExecuteTask_NoWritePermission tests ExecuteTask when the agent lacks WRITE permission.
+// TestExecuteTask_NoWritePermission verifies behavior when the agent lacks WRITE permission.
 func TestExecuteTask_NoWritePermission(t *testing.T) {
-	agent := agent.SimulateLoadAgent("Name", "Flight Getter")
-	if agent == nil {
+	// Load a mock agent
+	mockAgent := agent.SimulateLoadAgent("Name", "Flight Getter")
+	if mockAgent == nil {
 		t.Fatal("Agent not found")
 	}
 
-	task := task.CreateTask(2, "Book Flight", map[string]interface{}{
-		"origin":      "NYC",
-		"destination": "LAX",
-		"date":        "2023-10-10",
-		"OUTPUT":      "flightInfo",
-	})
+	// Create a parser task
+	mockTask := &parser.Task{
+		TaskName:  "Book Flight",
+		AgentName: "Flight Getter",
+		Parameters: map[string]string{
+			"origin":      "NYC",
+			"destination": "LAX",
+			"date":        "2023-10-10",
+			"OUTPUT":      "flightInfo",
+		},
+	}
 
+	// Define global data
 	globalData := map[string]*parser.Data{
 		"flightInfo": {
 			DataName:     "flightInfo",
@@ -83,43 +99,53 @@ func TestExecuteTask_NoWritePermission(t *testing.T) {
 		},
 	}
 
+	// Define global permissions without WRITE permission
 	globalPermissions := map[string]*parser.Permission{
 		"Flight Getter": {
 			AgentName: "Flight Getter",
 			DataPermissions: map[string][]string{
-				"flightInfo": {"READ"}, // Missing WRITE permission
+				"flightInfo": {"READ"}, // Lacks WRITE permission
 			},
 		},
 	}
 
-	// Create a new logger
-	logger := logger.NewLogger()
+	// Create a logger instance
+	log := logger.NewLogger()
 
-	err := executor.ExecuteTask(agent, task, globalData, globalPermissions, logger)
+	// Execute the task
+	err := executor.ExecuteTask(mockAgent.GetName(), mockTask, globalData, globalPermissions, log)
 	if err == nil {
 		t.Fatal("Expected error due to lack of WRITE permission, but got none")
 	}
 
-	// Print logger information
-	logger.PrintAllLogs()
+	// Print logs for debugging purposes
+	log.PrintAllLogs()
 }
 
+// TestExecuteTask_MissingGlobalData verifies behavior when required global data is missing.
 func TestExecuteTask_MissingGlobalData(t *testing.T) {
-	agent := agent.SimulateLoadAgent("Name", "Flight Getter")
-	if agent == nil {
+	// Load a mock agent
+	mockAgent := agent.SimulateLoadAgent("Name", "Flight Getter")
+	if mockAgent == nil {
 		t.Fatal("Agent not found")
 	}
 
-	task := task.CreateTask(3, "Book Flight", map[string]interface{}{
-		"origin":      "NYC",
-		"destination": "LAX",
-		"date":        "2023-10-10",
-		"OUTPUT":      "flightInfo",
-	})
+	// Create a parser task
+	mockTask := &parser.Task{
+		TaskName:  "Book Flight",
+		AgentName: "Flight Getter",
+		Parameters: map[string]string{
+			"origin":      "NYC",
+			"destination": "LAX",
+			"date":        "2023-10-10",
+			"OUTPUT":      "flightInfo",
+		},
+	}
 
-	// Empty globalData to simulate missing data
+	// Define empty global data to simulate missing data
 	globalData := map[string]*parser.Data{}
 
+	// Define global permissions
 	globalPermissions := map[string]*parser.Permission{
 		"Flight Getter": {
 			AgentName: "Flight Getter",
@@ -129,14 +155,15 @@ func TestExecuteTask_MissingGlobalData(t *testing.T) {
 		},
 	}
 
-	// Create a new logger
-	logger := logger.NewLogger()
+	// Create a logger instance
+	log := logger.NewLogger()
 
-	err := executor.ExecuteTask(agent, task, globalData, globalPermissions, logger)
+	// Execute the task
+	err := executor.ExecuteTask(mockAgent.GetName(), mockTask, globalData, globalPermissions, log)
 	if err == nil {
 		t.Fatal("Expected error due to missing global data, but got none")
 	}
 
-	// Print logger information
-	logger.PrintAllLogs()
+	// Print logs for debugging purposes
+	log.PrintAllLogs()
 }

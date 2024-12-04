@@ -3,7 +3,6 @@ package executor
 import (
 	"encoding/json"
 	"fmt"
-	"sync"
 	"time"
 	"trace/package/agent"
 	"trace/package/logger"
@@ -13,60 +12,79 @@ import (
 )
 
 // ExecuteTask performs the task using the provided agent and updates the task status accordingly.
-func ExecuteTask(a *agent.BaseAgent, t *task.Task, globalData map[string]*parser.Data, globalPermissions map[string]*parser.Permission, l *logger.Logger) error {
-	var logs []logger.Log
-	var wg sync.WaitGroup
-	var mu sync.Mutex
+// ExecuteTask performs the task using the provided agent and updates the task status accordingly.
+func ExecuteTask(agentName string, parserTask *parser.Task, globalData map[string]*parser.Data, globalPermissions map[string]*parser.Permission, l *logger.Logger) error {
+    var logs []logger.Log
 
-	t.UpdateStatus(task.InProgress)
-	t.UpdateOwner(a.GetID())
-	logs = append(logs, logger.NewLog("Starting Task: "+t.GetInfoString()))
+    // Convert parser.Task to task.Task
+    t := ConvertParserTask(parserTask)
 
-	filteredGlobalData := FilterGlobalDataByPermissions(a.GetName(), globalPermissions, globalData)
-	filteredDataStr, err := json.Marshal(filteredGlobalData)
-	if err != nil {
-		logs = append(logs, logger.NewLog("Error marshalling filtered global data: "+err.Error()))
-	} else {
-		logs = append(logs, logger.NewLog("Filtered global data for agent "+a.GetName()+": "+string(filteredDataStr)))
+    // Load the agent
+    a := agent.SimulateLoadAgent("Name", agentName)
+    if a == nil {
+        return fmt.Errorf("agent '%s' not found", agentName)
+    }
+
+    // Update task status and owner
+    t.UpdateStatus(task.InProgress)
+    t.UpdateOwner(a.GetID())
+    logs = append(logs, logger.NewLog("Starting Task: "+t.GetInfoString()))
+
+    // Filter global data based on agent's permissions
+    filteredGlobalData := FilterGlobalDataByPermissions(a.GetName(), globalPermissions, globalData)
+    filteredDataStr, err := json.Marshal(filteredGlobalData)
+    if err != nil {
+        logs = append(logs, logger.NewLog("Error marshalling filtered global data: "+err.Error()))
+    } else {
+        logs = append(logs, logger.NewLog("Filtered global data for agent "+a.GetName()+": "+string(filteredDataStr)))
+    }
+
+    // Load JSON template with parameters
+    jsonPayload, err := template.LoadJSON(a.GetJsonBody(), t.Parameters, filteredGlobalData)
+    if err != nil {
+        logs = append(logs, logger.NewLog("Error generating JSON payload: "+err.Error()))
+        l.AddLogs(logs)
+        return fmt.Errorf("error generating JSON payload: %w", err)
+    }
+    logs = append(logs, logger.NewLog("JSON Payload: "+jsonPayload))
+
+    // Simulate API call synchronously
+    response := SimulateAPICall(a, jsonPayload)
+    logs = append(logs, logger.NewLog("Response from endpoint: "+response))
+
+    // Handle the response and update global data if necessary
+    err = HandleResponse(a, t, globalData, globalPermissions, response)
+    if err != nil {
+        logs = append(logs, logger.NewLog("Error handling response: "+err.Error()))
+        l.AddLogs(logs)
+        return fmt.Errorf("error handling response: %w", err)
+    }
+
+    // Log updated global data
+    globalDataStr := GlobalDataToString(globalData)
+    logs = append(logs, logger.NewLog("Updated Global Data: "+globalDataStr))
+
+    // Update task status to Finished
+    t.UpdateStatus(task.Finished)
+    logs = append(logs, logger.NewLog("Task Status: "+t.GetInfoString()))
+
+    // Add logs to the logger
+    l.AddLogs(logs)
+
+    return nil
+}
+
+
+// ConvertParserTask converts a parser.Task to a task.Task.
+func ConvertParserTask(parserTask *parser.Task) *task.Task {
+	// Convert Parameters from map[string]string to map[string]interface{}
+	parameters := make(map[string]interface{})
+	for key, value := range parserTask.Parameters {
+		parameters[key] = value
 	}
 
-	jsonPayload, err := template.LoadJSON(a.GetJsonBody(), t.Parameters, filteredGlobalData)
-	if err != nil {
-		logs = append(logs, logger.NewLog("Error generating JSON payload: "+err.Error()))
-		l.AddLogs(logs)
-		return fmt.Errorf("error generating JSON payload: %w", err)
-	}
-	logs = append(logs, logger.NewLog("JSON Payload: "+jsonPayload))
-
-	var response string
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resp := SimulateAPICall(a, jsonPayload)
-		mu.Lock()
-		response = resp
-		mu.Unlock()
-	}()
-
-	wg.Wait()
-	logs = append(logs, logger.NewLog("Response from endpoint: "+response))
-
-	err = HandleResponse(a, t, globalData, globalPermissions, response)
-	if err != nil {
-		logs = append(logs, logger.NewLog("Error handling response: "+err.Error()))
-		l.AddLogs(logs)
-		return fmt.Errorf("error handling response: %w", err)
-	}
-
-	globalDataStr := GlobalDataToString(globalData)
-	logs = append(logs, logger.NewLog("Updated Global Data: "+globalDataStr))
-
-	t.UpdateStatus(task.Finished)
-	logs = append(logs, logger.NewLog("Task Status: "+t.GetInfoString()))
-
-	l.AddLogs(logs)
-
-	return nil
+	// Create a new task.Task using task.CreateTask
+	return task.CreateTask(parserTask.TaskName, parameters)
 }
 
 // GlobalDataToString converts the global data map to a JSON string for logging.

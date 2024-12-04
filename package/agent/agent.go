@@ -70,51 +70,52 @@ func (a *BaseAgent) GetJsonBody() map[string]interface{} {
 // GetMockAgents returns an array of mock base agents.
 func GetMockAgents() []*BaseAgent {
 	mockAgents := []*BaseAgent{
-		NewBaseAgent("AG123", "Flight Getter", "Travel", "https://api.flightgetter.com",
+		NewBaseAgent("AG123", "FlightGetter", "Travel", "https://api.flightgetter.com",
 			map[string]interface{}{
 				"action": "search",
 				"params": map[string]interface{}{
-					"origin":      "string",
-					"destination": "string",
-					"date":        "string",
+					"origin":      "[[origin]]",
+					"destination": "[[destination]]",
+					"date":        "[[date]]",
 				},
 			}, []string{"Search Flights", "Get Deals"}),
-		NewBaseAgent("AG124", "Room Booker", "Hospitality", "https://api.roombooker.com",
+		NewBaseAgent("AG124", "RoomBooker", "Hospitality", "https://api.roombooker.com",
 			map[string]interface{}{
 				"action": "reserve",
 				"params": map[string]interface{}{
-					"location": "string",
-					"date":     "string",
-					"guests":   "int",
+					"location": "[[location]]",
+					"date":     "[[date]]",
+					"guests":   "[[guests]]",
 				},
 			}, []string{"Search Rooms", "Make Reservations"}),
-		NewBaseAgent("AG125", "Uber Scheduler", "Transportation", "https://api.uberscheduler.com",
+		NewBaseAgent("AG125", "UberScheduler", "Transportation", "https://api.uberscheduler.com",
 			map[string]interface{}{
 				"action": "schedule",
 				"params": map[string]interface{}{
-					"pickup":   "string",
-					"dropoff":  "string",
-					"time":     "string",
+					"pickup":   "[[pickup]]",
+					"dropoff":  "[[dropoff]]",
+					"time":     "[[time]]",
 				},
 			}, []string{"Schedule Ride", "Get ETA"}),
-		NewBaseAgent("AG126", "Weather Checker", "Utility", "https://api.weatherchecker.com",
+		NewBaseAgent("AG126", "WeatherChecker", "Utility", "https://api.weatherchecker.com",
 			map[string]interface{}{
 				"action": "get_weather",
 				"params": map[string]interface{}{
-					"location": "string",
-					"date":     "string",
+					"location": "[[location]]",
+					"date":     "[[date]]",
 				},
 			}, []string{"Get Weather", "Hourly Forecast"}),
-		NewBaseAgent("AG127", "Package Tracker", "Logistics", "https://api.packagetracker.com",
+		NewBaseAgent("AG127", "PackageTracker", "Logistics", "https://api.packagetracker.com",
 			map[string]interface{}{
 				"action": "track",
 				"params": map[string]interface{}{
-					"tracking_number": "string",
+					"tracking_number": "[[tracking_number]]",
 				},
 			}, []string{"Track Package", "Delivery ETA"}),
 	}
 	return mockAgents
 }
+
 
 // SimulateLoadAgent returns predefined agents based on the given identifier type and value.
 func SimulateLoadAgent(identifierType string, identifierValue string) *BaseAgent {
