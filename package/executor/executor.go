@@ -32,6 +32,11 @@ func ExecuteTask(agentName string, parserTask *parser.Task, globalData map[strin
 
     // Filter global data based on agent's permissions
     filteredGlobalData := FilterGlobalDataByPermissions(a.GetName(), globalPermissions, globalData)
+
+	// Load task parameters
+	loadedTaskParameters := template.LoadTaskParameters(t.Parameters, filteredGlobalData)
+	
+	t.UpdateParameters(loadedTaskParameters)
     filteredDataStr, err := json.Marshal(filteredGlobalData)
     if err != nil {
         logs = append(logs, logger.NewLog("Error marshalling filtered global data: "+err.Error()))

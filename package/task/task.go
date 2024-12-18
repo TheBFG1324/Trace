@@ -83,8 +83,22 @@ func (t *Task) UpdateResult(item string) {
 
 // DisplayTask prints the task's details.
 func (t *Task) GetInfoString() string {
+	statusNum := t.Status
+	var status string
+	switch statusNum {
+	case 0:
+		status = "Pending"
+	case 1:
+		status = "Claimed"
+	case 2:
+		status = "In Progress"
+	case 3:
+		status = "Finished"
+	default:
+		status = "Unknown"
+	}
     return fmt.Sprintf(
-        "Task ID: %d\nDescription: %s\nStatus: %d\nOwner: %v\nParameters: %v\nResults: %v\n",
-        t.ID, t.Description, t.Status, t.Owner, t.Parameters, t.Result,
+        "Task ID: %d\nDescription: %s\nStatus: %s\nOwner: %v\nParameters: %v\nResults: %v\n",
+        t.ID, t.Description, status, t.Owner, t.Parameters, t.Result,
     )
 }

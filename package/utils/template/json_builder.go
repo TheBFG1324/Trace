@@ -22,6 +22,21 @@ func LoadJSON(jsonTemplate map[string]interface{}, taskParameters map[string]int
 	return string(finalJson), nil
 }
 
+//Function that loads correct parameter values based off global data and permissions
+func LoadTaskParameters(params map[string]interface{}, globalData map[string]interface{}) map[string]interface{} {
+	for parameterKey, parameterValue := range params {
+		strParamValue, ok := parameterValue.(string)
+		if !ok {
+			continue
+		}
+
+		if globalValue, found := globalData[strParamValue]; found {
+			params[parameterKey] = globalValue
+		}
+	}
+	return params
+}
+
 // Helper function to recursively replace placeholders. Returns false if any placeholders remain unfilled.
 func replacePlaceholders(data map[string]interface{}, taskParameters map[string]interface{}, globalData map[string]interface{}) bool {
 	allPlaceholdersFilled := true
