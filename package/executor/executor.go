@@ -12,7 +12,6 @@ import (
 )
 
 // ExecuteTask performs the task using the provided agent and updates the task status accordingly.
-// ExecuteTask performs the task using the provided agent and updates the task status accordingly.
 func ExecuteTask(agentName string, parserTask *parser.Task, globalData map[string]*parser.Data, globalPermissions map[string]*parser.Permission, l *logger.Logger) error {
     var logs []logger.Log
 
@@ -37,6 +36,7 @@ func ExecuteTask(agentName string, parserTask *parser.Task, globalData map[strin
 	loadedTaskParameters := template.LoadTaskParameters(t.Parameters, filteredGlobalData)
 	
 	t.UpdateParameters(loadedTaskParameters)
+	
     filteredDataStr, err := json.Marshal(filteredGlobalData)
     if err != nil {
         logs = append(logs, logger.NewLog("Error marshalling filtered global data: "+err.Error()))
